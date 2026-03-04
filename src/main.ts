@@ -2,6 +2,10 @@ import * as core from '@actions/core';
 import { getActionInputs, validateInputs, buildRequestConfig } from './validation';
 import { buildHeaders, makeHttpRequest } from './api';
 import { processResponse } from './output';
+import { parseTestResultsInput, parseNamedResultEntries } from './parsers/index';
+import { runDependencyDiffSignal } from './signals/dependency-diff';
+import { runTestResultsSignal } from './signals/test-results';
+import { runNewDependencySignal } from './signals/new-dependency';
 
 /**
  * Main action entry point
@@ -15,6 +19,66 @@ async function run(): Promise<void> {
     const inputs = getActionInputs();
     validateInputs(inputs);
     core.info('✅ Input validation passed');
+
+    // ============================================================
+    // PHASE 1.5: PARSE TEST RESULTS FILES (if test-results set)
+    // ============================================================
+    if (inputs.testResults && inputs.testResults.trim().length > 0) {
+      core.info('📂 Parsing test results...');
+      const entries = parseTestResultsInput(inputs.testResults);
+      core.info(`📋 Found ${entries.length} named suite(s): ${entries.map((e) => e.name).join(', ')}`);
+      const parsed = await parseNamedResultEntries(entries);
+      inputs.templateData = JSON.stringify(parsed);
+      core.info(`✅ Parsed ${parsed.testSuites.length} test suite(s): ${parsed.summary}`);
+    }
+
+    // ============================================================
+    // PHASE 1.7: RUN SIGNAL (if signal is set)
+    // ============================================================
+    if (inputs.signal && inputs.signal.trim().length > 0) {
+      core.info(`📊 Running signal: ${inputs.signal}`);
+
+      if (inputs.signal === 'DEPENDENCY_DIFF') {
+        const result = await runDependencyDiffSignal(inputs);
+        if (result.hasChanges) {
+          inputs.template = 'CUSTOM_TABLE';
+          inputs.templateData = JSON.stringify(result.data);
+        } else {
+          inputs.comment = result.noChangesComment!;
+        }
+      } else if (inputs.signal === 'TEST_RESULTS') {
+        if (!inputs.testResults || inputs.testResults.trim().length === 0) {
+          throw new Error(
+            '❌ The TEST_RESULTS signal requires "test-results" to be set\n\n' +
+            '💡 Example:\n' +
+            '  with:\n' +
+            '    signal: "TEST_RESULTS"\n' +
+            '    test-results: |\n' +
+            '      - name: Unit Tests\n' +
+            '        path: vitest-results/results.json'
+          );
+        }
+        const parsedResults = JSON.parse(inputs.templateData);
+        const result = runTestResultsSignal(parsedResults);
+        if (result.hasResults) {
+          inputs.template = 'CUSTOM_TABLE';
+          inputs.templateData = JSON.stringify(result.data);
+        } else {
+          inputs.comment = result.noResultsComment ?? '';
+        }
+      } else if (inputs.signal === 'NEW_DEPENDENCY') {
+        const result = await runNewDependencySignal(inputs);
+        if (result.hasChanges) {
+          inputs.template = 'CUSTOM_TABLE';
+          inputs.templateData = JSON.stringify(result.data);
+        } else {
+          inputs.comment = result.noChangesComment!;
+        }
+      } else {
+        // Unreachable: validateInputs() rejects unknown signals via signalTypeSchema
+        throw new Error(`❌ Unhandled signal: "${inputs.signal}"`);
+      }
+    }
 
     // Build and validate request configuration
     const config = buildRequestConfig(inputs);

@@ -1,12 +1,13 @@
 {
   "name": "api-call-action",
-  "version": "1.0.2",
+  "version": "1.2.0",
   "description": "GitHub Action to call an API endpoint with API key authentication",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "package": "npm run build && ncc build src/main.ts -o dist --source-map --license licenses.txt",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "pnpm generate-test-data && vitest run",
+    "generate-test-data": "playwright test --config sample-tests/playwright.config.all-passing.ts; playwright test --config sample-tests/playwright.config.with-failures.ts || true; mkdir -p src/__tests__/test-data/vitest && vitest run --config sample-tests/vitest.config.all-passing.ts; vitest run --config sample-tests/vitest.config.with-failures.ts || true"
   },
   "keywords": [
     "github-action",
@@ -18,12 +19,15 @@
   "dependencies": {
     "@actions/core": "^1.10.1",
     "@actions/github": "^6.0.0",
+    "@dev-herald/constants": "^1.0.8",
     "zod": "^4.2.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/node": "^20.10.0",
     "@vercel/ncc": "^0.38.1",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.18"
   },
   "packageManager": "pnpm@9.15.4+sha512.b2dc20e2fc72b3e18848459b37359a32064663e5627a51e4c74b2c29dd8e8e0491483c3abb40789cfd578bf362fb6ba8261b05f0387d76792ed6e23ea3b1b6a0"
 }

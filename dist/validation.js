@@ -33,104 +33,91 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.activeTemplateTypeSchema = exports.signalTypeSchema = exports.deploymentStatusSchema = void 0;
 exports.formatZodError = formatZodError;
 exports.getActionInputs = getActionInputs;
 exports.validateInputs = validateInputs;
 exports.buildRequestConfig = buildRequestConfig;
 const core = __importStar(require("@actions/core"));
 const zod_1 = require("zod");
+const constants_1 = require("@dev-herald/constants");
 // ============================================================================
-// Zod Schemas
+// Deployment Status Enum + Enhanced Schema
 // ============================================================================
 /**
- * Schema for PR number - must be a positive integer
+ * Enum of valid deployment statuses.
+ * Values match the keys of DEPLOYMENT_STATUS_IMGS - TypeScript will error at
+ * compile time if this ever drifts out of sync with the constants package.
  */
-const prNumberSchema = zod_1.z.number().int().positive({
-    message: 'PR number must be a positive integer (e.g., 123, not 0 or negative numbers)'
-});
+exports.deploymentStatusSchema = zod_1.z.enum(['building', 'queued', 'success', 'failed']);
+/**
+ * Valid signal types.
+ * Validated eagerly in validateInputs() so unknown signals fail with a Zod
+ * "Allowed values" error before reaching the signal handler in main.ts.
+ */
+exports.signalTypeSchema = zod_1.z.enum(['DEPENDENCY_DIFF', 'TEST_RESULTS', 'NEW_DEPENDENCY']);
+/**
+ * Active (non-deprecated) template types, derived from the constants package.
+ * TEST_RESULTS is excluded — use signal: TEST_RESULTS instead.
+ * Any new template added to templateTypeSchema in constants is automatically included here.
+ */
+exports.activeTemplateTypeSchema = constants_1.templateTypeSchema.exclude(['TEST_RESULTS']);
+/**
+ * Deployment schema with:
+ *  - deploymentStatus constrained to the known enum values
+ *  - statusIconUrl auto-defaulted from DEPLOYMENT_STATUS_IMGS when not provided
+ */
+const deploymentSchema = constants_1.deploymentTemplateSchema
+    .extend({ deploymentStatus: exports.deploymentStatusSchema })
+    .transform((data) => ({
+    ...data,
+    statusIconUrl: data.statusIconUrl ?? constants_1.DEPLOYMENT_STATUS_IMGS[data.deploymentStatus]
+}));
+// ============================================================================
+// Local Schemas (Action-specific)
+// ============================================================================
 /**
  * Schema for API key - non-empty string
  */
 const apiKeySchema = zod_1.z.string().min(1, {
-    message: 'API key is required and cannot be empty'
+    error: 'API key is required and cannot be empty'
 });
-/**
- * Schema for comment text - non-empty after trimming
- */
-const commentSchema = zod_1.z.string().trim().min(1, {
-    message: 'Comment text cannot be empty or contain only whitespace'
-}).max(65536, {
-    message: 'Comment text is too long (maximum 65,536 characters)'
-});
-/**
- * Schema for sticky ID - optional, but if provided must be non-empty
- */
-const stickyIdSchema = zod_1.z.string().trim().min(1, {
-    message: 'sticky-id cannot be empty if provided'
-}).max(256, {
-    message: 'sticky-id is too long (maximum 256 characters)'
-}).optional();
-/**
- * Valid template types
- */
-const templateTypeSchema = zod_1.z.enum(['DEPLOYMENT', 'TEST_RESULTS', 'MIGRATION', 'CUSTOM_TABLE'], {
-    message: 'Template must be one of: DEPLOYMENT, TEST_RESULTS, MIGRATION, CUSTOM_TABLE'
-});
-/**
- * Schema for DEPLOYMENT template data
- */
-const deploymentDataSchema = zod_1.z.object({
-    environment: zod_1.z.string().min(1, 'Environment is required'),
-    version: zod_1.z.string().optional(),
-    status: zod_1.z.enum(['success', 'failure', 'pending']).optional(),
-    url: zod_1.z.string().url('Deployment URL must be a valid URL').optional(),
-    timestamp: zod_1.z.string().optional()
-}).passthrough(); // Allow additional fields
-/**
- * Schema for TEST_RESULTS template data
- */
-const testResultsDataSchema = zod_1.z.object({
-    total: zod_1.z.number().int().nonnegative('Total tests must be a non-negative integer'),
-    passed: zod_1.z.number().int().nonnegative('Passed tests must be a non-negative integer'),
-    failed: zod_1.z.number().int().nonnegative('Failed tests must be a non-negative integer'),
-    skipped: zod_1.z.number().int().nonnegative('Skipped tests must be a non-negative integer').optional(),
-    duration: zod_1.z.string().optional(),
-    details: zod_1.z.array(zod_1.z.any()).optional()
-}).passthrough();
-/**
- * Schema for MIGRATION template data
- */
-const migrationDataSchema = zod_1.z.object({
-    migrationName: zod_1.z.string().min(1, 'Migration name is required'),
-    status: zod_1.z.enum(['success', 'failure', 'pending']).optional(),
-    duration: zod_1.z.string().optional(),
-    details: zod_1.z.string().optional()
-}).passthrough();
-/**
- * Schema for CUSTOM_TABLE template data
- */
-const customTableDataSchema = zod_1.z.object({
-    title: zod_1.z.string().optional(),
-    headers: zod_1.z.array(zod_1.z.string()).min(1, 'At least one table header is required'),
-    rows: zod_1.z.array(zod_1.z.array(zod_1.z.string())).min(1, 'At least one table row is required')
-}).passthrough();
 /**
  * Raw action inputs schema (before processing)
  */
 const rawInputsSchema = zod_1.z.object({
     apiKey: apiKeySchema,
-    prNumber: prNumberSchema,
+    prNumber: constants_1.prNumberSchema,
     comment: zod_1.z.string(),
     template: zod_1.z.string(),
     templateData: zod_1.z.string(),
+    testResults: zod_1.z.string(),
     stickyId: zod_1.z.string(),
-    apiUrl: zod_1.z.string().url('API URL must be a valid HTTPS URL').startsWith('https://', {
-        message: 'API URL must use HTTPS for security'
-    })
+    apiUrl: zod_1.z
+        .url({ error: 'API URL must be a valid HTTPS URL' })
+        .startsWith('https://', { error: 'API URL must use HTTPS for security' }),
+    signal: zod_1.z.string(),
+    include: zod_1.z.string(),
+    enableCve: zod_1.z.string(),
+    maxDeps: zod_1.z.string(),
 });
 // ============================================================================
 // Utility Functions
 // ============================================================================
+/**
+ * Recursively converts empty strings to undefined so optional URL/string fields
+ * are treated as absent rather than triggering format validation failures.
+ */
+function stripEmptyStrings(obj) {
+    return Object.fromEntries(Object.entries(obj).map(([key, value]) => {
+        if (typeof value === 'string' && value.trim() === '')
+            return [key, undefined];
+        if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+            return [key, stripEmptyStrings(value)];
+        }
+        return [key, value];
+    }));
+}
 /**
  * Formats Zod errors into a human-readable message
  */
@@ -141,26 +128,37 @@ function formatZodError(error) {
     issues.forEach((err, index) => {
         const fieldPath = err.path.length > 0 ? err.path.join('.') : 'input';
         messages.push(`  ${index + 1}. Field "${fieldPath}": ${err.message}`);
-        // Add context for specific error types using type guards and any for complex types
+        // Add context for specific error types (Zod v4 issue shapes)
         if (err.code === 'invalid_type') {
             const typeErr = err;
-            if (typeErr.expected && typeErr.received) {
-                messages.push(`     Expected: ${typeErr.expected}, Received: ${typeErr.received}`);
+            if (typeErr.expected != null) {
+                const received = typeErr.input !== undefined ? typeof typeErr.input : 'undefined';
+                messages.push(`     Expected: ${typeErr.expected}, Received: ${received}`);
+            }
+        }
+        else if (err.code === 'invalid_format') {
+            const formatErr = err;
+            const receivedValue = formatErr.input;
+            if (receivedValue === undefined || receivedValue === null || receivedValue === '') {
+                messages.push(`     Received: ${receivedValue === '' ? '(empty string)' : 'undefined'}`);
+            }
+            else {
+                messages.push(`     Received: "${receivedValue}"`);
             }
         }
         else if (err.code === 'invalid_value') {
             const valueErr = err;
-            if (valueErr.options && Array.isArray(valueErr.options)) {
-                messages.push(`     Allowed values: ${valueErr.options.join(', ')}`);
+            if (valueErr.values?.length) {
+                messages.push(`     Allowed values: ${valueErr.values.join(', ')}`);
             }
         }
         else if (err.code === 'too_small') {
             const smallErr = err;
             if (smallErr.minimum !== undefined) {
-                if (smallErr.type === 'string') {
+                if (smallErr.origin === 'string') {
                     messages.push(`     Minimum length: ${smallErr.minimum} characters`);
                 }
-                else if (smallErr.type === 'number') {
+                else if (smallErr.origin === 'number' || smallErr.origin === 'int') {
                     messages.push(`     Minimum value: ${smallErr.minimum}`);
                 }
             }
@@ -168,10 +166,10 @@ function formatZodError(error) {
         else if (err.code === 'too_big') {
             const bigErr = err;
             if (bigErr.maximum !== undefined) {
-                if (bigErr.type === 'string') {
+                if (bigErr.origin === 'string') {
                     messages.push(`     Maximum length: ${bigErr.maximum} characters`);
                 }
-                else if (bigErr.type === 'number') {
+                else if (bigErr.origin === 'number' || bigErr.origin === 'int') {
                     messages.push(`     Maximum value: ${bigErr.maximum}`);
                 }
             }
@@ -184,16 +182,15 @@ function formatZodError(error) {
  * Validates template-specific data based on template type
  */
 function validateTemplateData(template, data) {
+    const sanitised = stripEmptyStrings(data);
     try {
         switch (template) {
             case 'DEPLOYMENT':
-                return deploymentDataSchema.parse(data);
-            case 'TEST_RESULTS':
-                return testResultsDataSchema.parse(data);
+                return deploymentSchema.parse(sanitised);
             case 'MIGRATION':
-                return migrationDataSchema.parse(data);
+                return constants_1.migrationTemplateSchema.parse(sanitised);
             case 'CUSTOM_TABLE':
-                return customTableDataSchema.parse(data);
+                return constants_1.customTableTemplateSchema.parse(sanitised);
             default:
                 throw new Error(`Unknown template type: ${template}`);
         }
@@ -218,8 +215,13 @@ function getActionInputs() {
         comment: core.getInput('comment', { required: false }),
         template: core.getInput('template', { required: false }),
         templateData: core.getInput('template-data', { required: false }),
+        testResults: core.getInput('test-results', { required: false }),
         stickyId: core.getInput('sticky-id', { required: false }),
-        apiUrl: core.getInput('api-url', { required: false }) || 'https://dev-herald.com/api/v1/github'
+        apiUrl: core.getInput('api-url', { required: false }) || 'https://dev-herald.com/api/v1/github',
+        signal: core.getInput('signal', { required: false }),
+        include: core.getInput('include', { required: false }),
+        enableCve: core.getInput('enable-cve', { required: false }),
+        maxDeps: core.getInput('max-deps', { required: false }),
     };
 }
 /**
@@ -235,6 +237,37 @@ function validateInputs(inputs) {
         }
         throw error;
     }
+    const hasTemplate = inputs.template.trim().length > 0;
+    const hasSignal = inputs.signal.trim().length > 0;
+    if (hasTemplate && hasSignal) {
+        throw new Error('❌ Cannot provide both "template" and "signal" — choose one mode\n\n' +
+            '💡 Either use:\n' +
+            '  - "template" + "template-data" for structured templates\n' +
+            '  - "signal" for automatic signal-based comments (e.g. DEPENDENCY_DIFF, TEST_RESULTS)');
+    }
+    if (hasSignal) {
+        try {
+            exports.signalTypeSchema.parse(inputs.signal.trim());
+        }
+        catch (error) {
+            if (error instanceof zod_1.z.ZodError) {
+                throw new Error(formatZodError(error));
+            }
+            throw error;
+        }
+    }
+    const signalOnlyInputs = [
+        ['include', inputs.include],
+        ['enable-cve', inputs.enableCve],
+        ['max-deps', inputs.maxDeps],
+    ];
+    const illegalInputs = signalOnlyInputs
+        .filter(([, value]) => value.trim().length > 0)
+        .map(([name]) => name);
+    if (!hasSignal && illegalInputs.length > 0) {
+        throw new Error(`❌ The following input(s) are only valid when "signal" is set: ${illegalInputs.map((n) => `"${n}"`).join(', ')}\n\n` +
+            `💡 Either add "signal: DEPENDENCY_DIFF" to your workflow, or remove these inputs.`);
+    }
 }
 /**
  * Builds the request configuration based on inputs with Zod validation
@@ -242,7 +275,7 @@ function validateInputs(inputs) {
 function buildRequestConfig(inputs) {
     const hasComment = inputs.comment.trim().length > 0;
     const hasTemplate = inputs.template.trim().length > 0;
-    // Validate mode selection
+    // Validate mode selection (signals pre-populate comment/template before this runs)
     if (!hasComment && !hasTemplate) {
         throw new Error('❌ Must provide either "comment" (for simple comments) or "template" (for template comments)\n\n' +
             '💡 Example with comment:\n' +
@@ -251,7 +284,7 @@ function buildRequestConfig(inputs) {
             '💡 Example with template:\n' +
             '  with:\n' +
             '    template: "DEPLOYMENT"\n' +
-            '    template-data: \'{"environment": "production", "status": "success"}\'');
+            '    template-data: \'{"projectName": "My App", "deploymentStatus": "success", "deploymentLink": "https://vercel.com/deployments/abc123"}\'');
     }
     if (hasComment && hasTemplate) {
         throw new Error('❌ Cannot provide both "comment" and "template" - choose one mode\n\n' +
@@ -260,10 +293,25 @@ function buildRequestConfig(inputs) {
             '  - "template" + "template-data" for structured templates');
     }
     if (hasTemplate) {
+        // Catch the deprecated TEST_RESULTS template before the enum parse so the
+        // migration hint takes priority over the generic "Allowed values" Zod error.
+        if (inputs.template === 'TEST_RESULTS') {
+            throw new Error('❌ The TEST_RESULTS template is deprecated. Please switch to the TEST_RESULTS signal instead:\n\n' +
+                '💡 Replace:\n' +
+                '    template: "TEST_RESULTS"\n' +
+                '    test-results: |\n' +
+                '      - name: Unit Tests\n' +
+                '        path: vitest-results/results.json\n\n' +
+                '  With:\n' +
+                '    signal: "TEST_RESULTS"\n' +
+                '    test-results: |\n' +
+                '      - name: Unit Tests\n' +
+                '        path: vitest-results/results.json');
+        }
         // Template mode - validate template type
         let validatedTemplate;
         try {
-            validatedTemplate = templateTypeSchema.parse(inputs.template);
+            validatedTemplate = exports.activeTemplateTypeSchema.parse(inputs.template);
         }
         catch (error) {
             if (error instanceof zod_1.z.ZodError) {
@@ -272,7 +320,9 @@ function buildRequestConfig(inputs) {
             throw error;
         }
         // Parse and validate template data
-        if (!inputs.templateData || inputs.templateData.trim().length === 0) {
+        const hasTemplateData = inputs.templateData && inputs.templateData.trim().length > 0;
+        const hasTestResults = inputs.testResults && inputs.testResults.trim().length > 0;
+        if (!hasTemplateData && !hasTestResults) {
             throw new Error('❌ template-data is required when using template mode\n\n' +
                 `💡 The ${inputs.template} template requires JSON data. Example:\n` +
                 '  with:\n' +
@@ -290,7 +340,7 @@ function buildRequestConfig(inputs) {
                 '  - Escape special characters properly\n' +
                 '  - Validate JSON at https://jsonlint.com\n\n' +
                 'Example:\n' +
-                '  template-data: \'{"environment": "production", "status": "success"}\'');
+                '  template-data: \'{"projectName": "My App", "deploymentStatus": "success", "deploymentLink": "https://vercel.com/deployments/abc123"}\'');
         }
         // Validate template-specific data structure
         const validatedData = validateTemplateData(validatedTemplate, parsedData);
@@ -302,7 +352,7 @@ function buildRequestConfig(inputs) {
         // Validate and add sticky ID if provided
         if (inputs.stickyId && inputs.stickyId.trim().length > 0) {
             try {
-                const validatedStickyId = stickyIdSchema.parse(inputs.stickyId);
+                const validatedStickyId = constants_1.stickyIdSchema.parse(inputs.stickyId);
                 requestBody.stickyId = validatedStickyId;
             }
             catch (error) {
@@ -326,7 +376,7 @@ function buildRequestConfig(inputs) {
         // Simple comment mode - validate comment text
         let validatedComment;
         try {
-            validatedComment = commentSchema.parse(inputs.comment);
+            validatedComment = constants_1.simpleCommentSchema.parse(inputs.comment);
         }
         catch (error) {
             if (error instanceof zod_1.z.ZodError) {
@@ -342,7 +392,7 @@ function buildRequestConfig(inputs) {
         // Validate and add sticky ID if provided
         if (inputs.stickyId && inputs.stickyId.trim().length > 0) {
             try {
-                const validatedStickyId = stickyIdSchema.parse(inputs.stickyId);
+                const validatedStickyId = constants_1.stickyIdSchema.parse(inputs.stickyId);
                 requestBody.stickyId = validatedStickyId;
                 core.info(`🔖 Sticky ID: ${requestBody.stickyId} (will update existing comment if found)`);
             }

@@ -1,91 +1,69 @@
 import * as core from '@actions/core';
 import { z } from 'zod';
+import {
+  prNumberSchema,
+  stickyIdSchema,
+  simpleCommentSchema,
+  templateTypeSchema,
+  deploymentTemplateSchema,
+  migrationTemplateSchema,
+  customTableTemplateSchema,
+  DEPLOYMENT_STATUS_IMGS
+} from '@dev-herald/constants';
 import type { ActionInputs, RequestConfig } from './types';
 
 // ============================================================================
-// Zod Schemas
+// Deployment Status Enum + Enhanced Schema
 // ============================================================================
 
 /**
- * Schema for PR number - must be a positive integer
+ * Enum of valid deployment statuses.
+ * Values match the keys of DEPLOYMENT_STATUS_IMGS - TypeScript will error at
+ * compile time if this ever drifts out of sync with the constants package.
  */
-const prNumberSchema = z.number().int().positive({
-  message: 'PR number must be a positive integer (e.g., 123, not 0 or negative numbers)'
-});
+export const deploymentStatusSchema = z.enum(
+  ['building', 'queued', 'success', 'failed'] satisfies Array<keyof typeof DEPLOYMENT_STATUS_IMGS>
+);
+export type DeploymentStatus = z.infer<typeof deploymentStatusSchema>;
+
+/**
+ * Valid signal types.
+ * Validated eagerly in validateInputs() so unknown signals fail with a Zod
+ * "Allowed values" error before reaching the signal handler in main.ts.
+ */
+export const signalTypeSchema = z.enum(['DEPENDENCY_DIFF', 'TEST_RESULTS', 'NEW_DEPENDENCY']);
+export type SignalType = z.infer<typeof signalTypeSchema>;
+
+/**
+ * Active (non-deprecated) template types, derived from the constants package.
+ * TEST_RESULTS is excluded — use signal: TEST_RESULTS instead.
+ * Any new template added to templateTypeSchema in constants is automatically included here.
+ */
+export const activeTemplateTypeSchema = templateTypeSchema.exclude(['TEST_RESULTS']);
+export type ActiveTemplateType = z.infer<typeof activeTemplateTypeSchema>;
+
+/**
+ * Deployment schema with:
+ *  - deploymentStatus constrained to the known enum values
+ *  - statusIconUrl auto-defaulted from DEPLOYMENT_STATUS_IMGS when not provided
+ */
+const deploymentSchema = deploymentTemplateSchema
+  .extend({ deploymentStatus: deploymentStatusSchema })
+  .transform((data) => ({
+    ...data,
+    statusIconUrl: data.statusIconUrl ?? DEPLOYMENT_STATUS_IMGS[data.deploymentStatus]
+  }));
+
+// ============================================================================
+// Local Schemas (Action-specific)
+// ============================================================================
 
 /**
  * Schema for API key - non-empty string
  */
 const apiKeySchema = z.string().min(1, {
-  message: 'API key is required and cannot be empty'
+  error: 'API key is required and cannot be empty'
 });
-
-/**
- * Schema for comment text - non-empty after trimming
- */
-const commentSchema = z.string().trim().min(1, {
-  message: 'Comment text cannot be empty or contain only whitespace'
-}).max(65536, {
-  message: 'Comment text is too long (maximum 65,536 characters)'
-});
-
-/**
- * Schema for sticky ID - optional, but if provided must be non-empty
- */
-const stickyIdSchema = z.string().trim().min(1, {
-  message: 'sticky-id cannot be empty if provided'
-}).max(256, {
-  message: 'sticky-id is too long (maximum 256 characters)'
-}).optional();
-
-/**
- * Valid template types
- */
-const templateTypeSchema = z.enum(['DEPLOYMENT', 'TEST_RESULTS', 'MIGRATION', 'CUSTOM_TABLE'], {
-  message: 'Template must be one of: DEPLOYMENT, TEST_RESULTS, MIGRATION, CUSTOM_TABLE'
-});
-
-/**
- * Schema for DEPLOYMENT template data
- */
-const deploymentDataSchema = z.object({
-  environment: z.string().min(1, 'Environment is required'),
-  version: z.string().optional(),
-  status: z.enum(['success', 'failure', 'pending']).optional(),
-  url: z.string().url('Deployment URL must be a valid URL').optional(),
-  timestamp: z.string().optional()
-}).passthrough(); // Allow additional fields
-
-/**
- * Schema for TEST_RESULTS template data
- */
-const testResultsDataSchema = z.object({
-  total: z.number().int().nonnegative('Total tests must be a non-negative integer'),
-  passed: z.number().int().nonnegative('Passed tests must be a non-negative integer'),
-  failed: z.number().int().nonnegative('Failed tests must be a non-negative integer'),
-  skipped: z.number().int().nonnegative('Skipped tests must be a non-negative integer').optional(),
-  duration: z.string().optional(),
-  details: z.array(z.any()).optional()
-}).passthrough();
-
-/**
- * Schema for MIGRATION template data
- */
-const migrationDataSchema = z.object({
-  migrationName: z.string().min(1, 'Migration name is required'),
-  status: z.enum(['success', 'failure', 'pending']).optional(),
-  duration: z.string().optional(),
-  details: z.string().optional()
-}).passthrough();
-
-/**
- * Schema for CUSTOM_TABLE template data
- */
-const customTableDataSchema = z.object({
-  title: z.string().optional(),
-  headers: z.array(z.string()).min(1, 'At least one table header is required'),
-  rows: z.array(z.array(z.string())).min(1, 'At least one table row is required')
-}).passthrough();
 
 /**
  * Raw action inputs schema (before processing)
@@ -96,10 +74,15 @@ const rawInputsSchema = z.object({
   comment: z.string(),
   template: z.string(),
   templateData: z.string(),
+  testResults: z.string(),
   stickyId: z.string(),
-  apiUrl: z.string().url('API URL must be a valid HTTPS URL').startsWith('https://', {
-    message: 'API URL must use HTTPS for security'
-  })
+  apiUrl: z
+    .url({ error: 'API URL must be a valid HTTPS URL' })
+    .startsWith('https://', { error: 'API URL must use HTTPS for security' }),
+  signal: z.string(),
+  include: z.string(),
+  enableCve: z.string(),
+  maxDeps: z.string(),
 });
 
 // ============================================================================
@@ -107,52 +90,80 @@ const rawInputsSchema = z.object({
 // ============================================================================
 
 /**
+ * Recursively converts empty strings to undefined so optional URL/string fields
+ * are treated as absent rather than triggering format validation failures.
+ */
+function stripEmptyStrings(obj: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(obj).map(([key, value]) => {
+      if (typeof value === 'string' && value.trim() === '') return [key, undefined];
+      if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+        return [key, stripEmptyStrings(value as Record<string, unknown>)];
+      }
+      return [key, value];
+    })
+  );
+}
+
+/** Zod v4 issue type (from z.core) */
+type ZodIssue = z.core.$ZodIssue;
+
+/**
  * Formats Zod errors into a human-readable message
  */
 export function formatZodError(error: z.ZodError): string {
   const messages: string[] = [];
-  
+
   messages.push('❌ Validation failed:\n');
-  
+
   const issues = error.issues;
-  issues.forEach((err: z.ZodIssue, index: number) => {
+  issues.forEach((err: ZodIssue, index: number) => {
     const fieldPath = err.path.length > 0 ? err.path.join('.') : 'input';
     messages.push(`  ${index + 1}. Field "${fieldPath}": ${err.message}`);
-    
-    // Add context for specific error types using type guards and any for complex types
+
+    // Add context for specific error types (Zod v4 issue shapes)
     if (err.code === 'invalid_type') {
-      const typeErr = err as any;
-      if (typeErr.expected && typeErr.received) {
-        messages.push(`     Expected: ${typeErr.expected}, Received: ${typeErr.received}`);
+      const typeErr = err as z.core.$ZodIssueInvalidType;
+      if (typeErr.expected != null) {
+        const received = typeErr.input !== undefined ? typeof typeErr.input : 'undefined';
+        messages.push(`     Expected: ${typeErr.expected}, Received: ${received}`);
+      }
+    } else if (err.code === 'invalid_format') {
+      const formatErr = err as z.core.$ZodIssueInvalidStringFormat;
+      const receivedValue = formatErr.input;
+      if (receivedValue === undefined || receivedValue === null || receivedValue === '') {
+        messages.push(`     Received: ${receivedValue === '' ? '(empty string)' : 'undefined'}`);
+      } else {
+        messages.push(`     Received: "${receivedValue}"`);
       }
     } else if (err.code === 'invalid_value') {
-      const valueErr = err as any;
-      if (valueErr.options && Array.isArray(valueErr.options)) {
-        messages.push(`     Allowed values: ${valueErr.options.join(', ')}`);
+      const valueErr = err as z.core.$ZodIssueInvalidValue;
+      if (valueErr.values?.length) {
+        messages.push(`     Allowed values: ${valueErr.values.join(', ')}`);
       }
     } else if (err.code === 'too_small') {
-      const smallErr = err as any;
+      const smallErr = err as z.core.$ZodIssueTooSmall;
       if (smallErr.minimum !== undefined) {
-        if (smallErr.type === 'string') {
+        if (smallErr.origin === 'string') {
           messages.push(`     Minimum length: ${smallErr.minimum} characters`);
-        } else if (smallErr.type === 'number') {
+        } else if (smallErr.origin === 'number' || smallErr.origin === 'int') {
           messages.push(`     Minimum value: ${smallErr.minimum}`);
         }
       }
     } else if (err.code === 'too_big') {
-      const bigErr = err as any;
+      const bigErr = err as z.core.$ZodIssueTooBig;
       if (bigErr.maximum !== undefined) {
-        if (bigErr.type === 'string') {
+        if (bigErr.origin === 'string') {
           messages.push(`     Maximum length: ${bigErr.maximum} characters`);
-        } else if (bigErr.type === 'number') {
+        } else if (bigErr.origin === 'number' || bigErr.origin === 'int') {
           messages.push(`     Maximum value: ${bigErr.maximum}`);
         }
       }
     }
   });
-  
+
   messages.push('\n💡 Please check your workflow file and ensure all inputs are correct.');
-  
+
   return messages.join('\n');
 }
 
@@ -160,16 +171,15 @@ export function formatZodError(error: z.ZodError): string {
  * Validates template-specific data based on template type
  */
 function validateTemplateData(template: string, data: any): any {
+  const sanitised = stripEmptyStrings(data as Record<string, unknown>);
   try {
     switch (template) {
       case 'DEPLOYMENT':
-        return deploymentDataSchema.parse(data);
-      case 'TEST_RESULTS':
-        return testResultsDataSchema.parse(data);
+        return deploymentSchema.parse(sanitised);
       case 'MIGRATION':
-        return migrationDataSchema.parse(data);
+        return migrationTemplateSchema.parse(sanitised);
       case 'CUSTOM_TABLE':
-        return customTableDataSchema.parse(data);
+        return customTableTemplateSchema.parse(sanitised);
       default:
         throw new Error(`Unknown template type: ${template}`);
     }
@@ -195,8 +205,13 @@ export function getActionInputs(): ActionInputs {
     comment: core.getInput('comment', { required: false }),
     template: core.getInput('template', { required: false }),
     templateData: core.getInput('template-data', { required: false }),
+    testResults: core.getInput('test-results', { required: false }),
     stickyId: core.getInput('sticky-id', { required: false }),
-    apiUrl: core.getInput('api-url', { required: false }) || 'https://dev-herald.com/api/v1/github'
+    apiUrl: core.getInput('api-url', { required: false }) || 'https://dev-herald.com/api/v1/github',
+    signal: core.getInput('signal', { required: false }),
+    include: core.getInput('include', { required: false }),
+    enableCve: core.getInput('enable-cve', { required: false }),
+    maxDeps: core.getInput('max-deps', { required: false }),
   };
 }
 
@@ -212,6 +227,46 @@ export function validateInputs(inputs: ActionInputs): void {
     }
     throw error;
   }
+
+  const hasTemplate = inputs.template.trim().length > 0;
+  const hasSignal = inputs.signal.trim().length > 0;
+
+  if (hasTemplate && hasSignal) {
+    throw new Error(
+      '❌ Cannot provide both "template" and "signal" — choose one mode\n\n' +
+      '💡 Either use:\n' +
+      '  - "template" + "template-data" for structured templates\n' +
+      '  - "signal" for automatic signal-based comments (e.g. DEPENDENCY_DIFF, TEST_RESULTS)'
+    );
+  }
+
+  if (hasSignal) {
+    try {
+      signalTypeSchema.parse(inputs.signal.trim());
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new Error(formatZodError(error));
+      }
+      throw error;
+    }
+  }
+
+  const signalOnlyInputs: Array<[string, string]> = [
+    ['include', inputs.include],
+    ['enable-cve', inputs.enableCve],
+    ['max-deps', inputs.maxDeps],
+  ];
+
+  const illegalInputs = signalOnlyInputs
+    .filter(([, value]) => value.trim().length > 0)
+    .map(([name]) => name);
+
+  if (!hasSignal && illegalInputs.length > 0) {
+    throw new Error(
+      `❌ The following input(s) are only valid when "signal" is set: ${illegalInputs.map((n) => `"${n}"`).join(', ')}\n\n` +
+      `💡 Either add "signal: DEPENDENCY_DIFF" to your workflow, or remove these inputs.`
+    );
+  }
 }
 
 /**
@@ -221,7 +276,7 @@ export function buildRequestConfig(inputs: ActionInputs): RequestConfig {
   const hasComment = inputs.comment.trim().length > 0;
   const hasTemplate = inputs.template.trim().length > 0;
 
-  // Validate mode selection
+  // Validate mode selection (signals pre-populate comment/template before this runs)
   if (!hasComment && !hasTemplate) {
     throw new Error(
       '❌ Must provide either "comment" (for simple comments) or "template" (for template comments)\n\n' +
@@ -231,7 +286,7 @@ export function buildRequestConfig(inputs: ActionInputs): RequestConfig {
       '💡 Example with template:\n' +
       '  with:\n' +
       '    template: "DEPLOYMENT"\n' +
-      '    template-data: \'{"environment": "production", "status": "success"}\''
+      '    template-data: \'{"projectName": "My App", "deploymentStatus": "success", "deploymentLink": "https://vercel.com/deployments/abc123"}\''
     );
   }
 
@@ -245,10 +300,28 @@ export function buildRequestConfig(inputs: ActionInputs): RequestConfig {
   }
 
   if (hasTemplate) {
+    // Catch the deprecated TEST_RESULTS template before the enum parse so the
+    // migration hint takes priority over the generic "Allowed values" Zod error.
+    if (inputs.template === 'TEST_RESULTS') {
+      throw new Error(
+        '❌ The TEST_RESULTS template is deprecated. Please switch to the TEST_RESULTS signal instead:\n\n' +
+        '💡 Replace:\n' +
+        '    template: "TEST_RESULTS"\n' +
+        '    test-results: |\n' +
+        '      - name: Unit Tests\n' +
+        '        path: vitest-results/results.json\n\n' +
+        '  With:\n' +
+        '    signal: "TEST_RESULTS"\n' +
+        '    test-results: |\n' +
+        '      - name: Unit Tests\n' +
+        '        path: vitest-results/results.json'
+      );
+    }
+
     // Template mode - validate template type
-    let validatedTemplate: z.infer<typeof templateTypeSchema>;
+    let validatedTemplate: ActiveTemplateType;
     try {
-      validatedTemplate = templateTypeSchema.parse(inputs.template);
+      validatedTemplate = activeTemplateTypeSchema.parse(inputs.template);
     } catch (error) {
       if (error instanceof z.ZodError) {
         throw new Error(formatZodError(error));
@@ -257,7 +330,10 @@ export function buildRequestConfig(inputs: ActionInputs): RequestConfig {
     }
 
     // Parse and validate template data
-    if (!inputs.templateData || inputs.templateData.trim().length === 0) {
+    const hasTemplateData = inputs.templateData && inputs.templateData.trim().length > 0;
+    const hasTestResults = inputs.testResults && inputs.testResults.trim().length > 0;
+
+    if (!hasTemplateData && !hasTestResults) {
       throw new Error(
         '❌ template-data is required when using template mode\n\n' +
         `💡 The ${inputs.template} template requires JSON data. Example:\n` +
@@ -278,7 +354,7 @@ export function buildRequestConfig(inputs: ActionInputs): RequestConfig {
         '  - Escape special characters properly\n' +
         '  - Validate JSON at https://jsonlint.com\n\n' +
         'Example:\n' +
-        '  template-data: \'{"environment": "production", "status": "success"}\''
+        '  template-data: \'{"projectName": "My App", "deploymentStatus": "success", "deploymentLink": "https://vercel.com/deployments/abc123"}\''
       );
     }
 
@@ -318,7 +394,7 @@ export function buildRequestConfig(inputs: ActionInputs): RequestConfig {
     // Simple comment mode - validate comment text
     let validatedComment: string;
     try {
-      validatedComment = commentSchema.parse(inputs.comment);
+      validatedComment = simpleCommentSchema.parse(inputs.comment);
     } catch (error) {
       if (error instanceof z.ZodError) {
         throw new Error(formatZodError(error));

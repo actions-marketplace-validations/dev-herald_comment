@@ -56,8 +56,13 @@ export interface ActionInputs {
   comment: string;
   template: string;
   templateData: string;
+  testResults: string;
   stickyId: string;
   apiUrl: string;
+  signal: string;
+  include: string;
+  enableCve: string;
+  maxDeps: string;
 }
 
 export interface RequestConfig {
