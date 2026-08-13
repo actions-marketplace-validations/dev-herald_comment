@@ -30,6 +30,11 @@ function makeDeploymentInputs(overrides = {}) {
         include: '',
         enableCve: '',
         maxDeps: '',
+        bundleReportPath: '',
+        bundleBaselinePath: '',
+        bundleBaselineBranch: '',
+        maxChanges: '',
+        showGzip: '',
         ...overrides,
     };
 }
@@ -95,6 +100,36 @@ function makeDeploymentInputs(overrides = {}) {
             }),
         });
         (0, vitest_1.expect)(() => (0, validation_1.buildRequestConfig)(inputs)).not.toThrow();
+    });
+});
+// ---------------------------------------------------------------------------
+// CUSTOM_TABLE template
+// ---------------------------------------------------------------------------
+(0, vitest_1.describe)('buildRequestConfig – CUSTOM_TABLE template', () => {
+    (0, vitest_1.it)('accepts per-cell markdown (links, empty cells) and returns template request body', () => {
+        const inputs = makeDeploymentInputs({
+            template: 'CUSTOM_TABLE',
+            templateData: JSON.stringify({
+                title: 'Summary',
+                headers: ['Link', 'Note'],
+                rows: [
+                    {
+                        cells: [
+                            { markdown: '[label](https://example.com)' },
+                            { markdown: '' },
+                        ],
+                    },
+                    { cells: [{ markdown: 'plain' }, { markdown: 'inline `code`' }] },
+                ],
+                showTimestamp: true,
+            }),
+        });
+        const config = (0, validation_1.buildRequestConfig)(inputs);
+        (0, vitest_1.expect)(config.mode).toBe('template');
+        (0, vitest_1.expect)(config.requestBody.template).toBe('CUSTOM_TABLE');
+        const data = config.requestBody.data;
+        (0, vitest_1.expect)(data.rows[0].cells[0].markdown).toBe('[label](https://example.com)');
+        (0, vitest_1.expect)(data.rows[0].cells[1].markdown).toBe('');
     });
 });
 // ---------------------------------------------------------------------------
@@ -257,6 +292,11 @@ function makeDeploymentInputs(overrides = {}) {
             include: '',
             enableCve: '',
             maxDeps: '',
+            bundleReportPath: '',
+            bundleBaselinePath: '',
+            bundleBaselineBranch: '',
+            maxChanges: '',
+            showGzip: '',
             ...overrides,
         };
     }
@@ -285,6 +325,15 @@ function makeDeploymentInputs(overrides = {}) {
     });
     (0, vitest_1.it)('does not throw when signal-only inputs are set alongside signal', () => {
         (0, vitest_1.expect)(() => (0, validation_1.validateInputs)(makeRawInputs({ signal: 'DEPENDENCY_DIFF', include: 'dependencies', enableCve: 'true', maxDeps: '10' }))).not.toThrow();
+    });
+    (0, vitest_1.it)('throws when bundle inputs are set without signal: BUNDLE_ANALYSIS', () => {
+        (0, vitest_1.expect)(() => (0, validation_1.validateInputs)(makeRawInputs({ bundleReportPath: '.next/analyze/' }))).toThrow(/BUNDLE_ANALYSIS/);
+    });
+    (0, vitest_1.it)('throws when bundle inputs are set with a different signal', () => {
+        (0, vitest_1.expect)(() => (0, validation_1.validateInputs)(makeRawInputs({ signal: 'DEPENDENCY_DIFF', bundleReportPath: '.next/analyze/' }))).toThrow(/BUNDLE_ANALYSIS/);
+    });
+    (0, vitest_1.it)('does not throw when bundle inputs are set with signal: BUNDLE_ANALYSIS', () => {
+        (0, vitest_1.expect)(() => (0, validation_1.validateInputs)(makeRawInputs({ signal: 'BUNDLE_ANALYSIS', bundleReportPath: '.next/analyze/', bundleBaselinePath: 'baseline/' }))).not.toThrow();
     });
     (0, vitest_1.it)('throws when both "template" and "signal" are provided', () => {
         (0, vitest_1.expect)(() => (0, validation_1.validateInputs)(makeRawInputs({ template: 'DEPLOYMENT', signal: 'DEPENDENCY_DIFF' }))).toThrow(/Cannot provide both "template" and "signal"/);

@@ -24,30 +24,44 @@ inputs:
       YAML list of named test result files. When provided with signal: TEST_RESULTS,
       the action reads and parses these files automatically — no template-data needed.
       Each entry requires a display name and a path to a JSON reporter output file.
+      Optional per entry: link or url (HTTPS) — used as the suite name link in the table.
       Supported formats: Playwright JSON reporter, Vitest JSON reporter.
 
-      Example:
+      Example (use workflow expressions for link in your workflow YAML, not here):
         test-results: |
           - name: Unit Tests
             path: vitest-results/unit.json
+            link: https://github.com/owner/repo/actions/runs/12345678
           - name: E2E Tests
             path: playwright-results/results.json
     required: false
   signal:
-    description: 'Signal type to run. Supported: DEPENDENCY_DIFF, TEST_RESULTS, NEW_DEPENDENCY. When set, the action computes the signal output and posts it automatically — no template or template-data required. Cannot be used together with "template".'
+    description: 'Signal type to run. Supported: DEPENDENCY_DIFF, TEST_RESULTS, NEW_DEPENDENCY, BUNDLE_ANALYSIS. When set, the action computes the signal output and posts it automatically — no template or template-data required. Cannot be used together with "template".'
+    required: false
+  bundle-report-path:
+    description: 'Path to PR bundle analysis JSON directory (required for BUNDLE_ANALYSIS). Example: .next/analyze/'
+    required: false
+  bundle-baseline-path:
+    description: 'Path to baseline bundle JSON directory after download (required for BUNDLE_ANALYSIS). Example: baseline/'
+    required: false
+  bundle-baseline-branch:
+    description: 'Target branch name for "baseline missing" log message (BUNDLE_ANALYSIS only). Default: main'
+    required: false
+  max-changes:
+    description: 'Maximum bundle diff rows to show (BUNDLE_ANALYSIS only). Default: 25'
+    required: false
+  show-gzip:
+    description: 'Include gzip size delta in bundle diff (BUNDLE_ANALYSIS only). Default: false'
     required: false
   include:
-    description: 'Comma-separated list of dependency fields to scan for DEPENDENCY_DIFF. Default: dependencies,devDependencies,optionalDependencies'
+    description: 'Comma-separated list of dependency fields to scan for DEPENDENCY_DIFF. Default: dependencies,devDependencies,optionalDependencies (only used when signal is set)'
     required: false
-    default: 'dependencies,devDependencies,optionalDependencies'
   enable-cve:
-    description: 'Set to "true" to query the OSV database for CVE counts per dependency version (DEPENDENCY_DIFF only). Default: false'
+    description: 'Set to "true" to query the OSV database for CVE counts per dependency version (DEPENDENCY_DIFF only). Default: false (only used when signal is set)'
     required: false
-    default: 'false'
   max-deps:
-    description: 'Maximum number of dependency changes to show in the DEPENDENCY_DIFF table. Default: 25'
+    description: 'Maximum number of dependency changes to show in the DEPENDENCY_DIFF table. Default: 25 (only used when signal is set)'
     required: false
-    default: '25'
   sticky-id:
     description: 'Optional identifier for updateable comments. Comments with the same sticky-id will update instead of creating new ones. Example: "deployment-status"'
     required: false

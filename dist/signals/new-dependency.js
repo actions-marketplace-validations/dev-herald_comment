@@ -196,16 +196,13 @@ function formatRelativeTime(dateStr) {
 // Main signal entry point
 // ============================================================================
 async function runNewDependencySignal(inputs) {
-    const includeRaw = inputs.include.trim() || 'dependencies,devDependencies,optionalDependencies';
-    const enableCveRaw = inputs.enableCve.trim() || 'false';
-    const maxDepsRaw = inputs.maxDeps.trim() || '25';
     const options = {
-        includedFields: includeRaw
+        includedFields: inputs.include
             .split(',')
             .map((s) => s.trim())
             .filter(Boolean),
-        enableCve: enableCveRaw.toLowerCase() === 'true',
-        maxDeps: Math.max(1, parseInt(maxDepsRaw, 10) || 25),
+        enableCve: inputs.enableCve.toLowerCase() === 'true',
+        maxDeps: Math.max(1, parseInt(inputs.maxDeps, 10) || 25),
     };
     core.info(`📦 Scanning dependency fields: ${options.includedFields.join(', ')}`);
     const baseSha = (0, utils_1.getBaseSha)('NEW_DEPENDENCY');
@@ -265,11 +262,11 @@ async function runNewDependencySignal(inputs) {
         headers: ['Package', 'Version', 'CVEs', 'Weekly DL', 'Last Release'],
         rows: limited.map((d) => ({
             cells: [
-                { text: d.name },
-                { text: d.version },
-                { text: formatCveCount(d.cveCount) },
-                { text: formatDownloads(d.weeklyDownloads) },
-                { text: formatRelativeTime(d.publishedAt) },
+                { markdown: d.name },
+                { markdown: d.version },
+                { markdown: formatCveCount(d.cveCount) },
+                { markdown: formatDownloads(d.weeklyDownloads) },
+                { markdown: formatRelativeTime(d.publishedAt) },
             ],
         })),
         showTimestamp: true,

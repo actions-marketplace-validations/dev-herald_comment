@@ -1,11 +1,12 @@
 import * as core from '@actions/core';
-import { getActionInputs, validateInputs, buildRequestConfig } from './validation';
+import { getActionInputs, validateInputs, buildRequestConfig, resolveInputsForSignal } from './validation';
 import { buildHeaders, makeHttpRequest } from './api';
 import { processResponse } from './output';
 import { parseTestResultsInput, parseNamedResultEntries } from './parsers/index';
 import { runDependencyDiffSignal } from './signals/dependency-diff';
 import { runTestResultsSignal } from './signals/test-results';
 import { runNewDependencySignal } from './signals/new-dependency';
+import { runBundleAnalysisSignal } from './signals/bundle-analysis';
 
 /**
  * Main action entry point
@@ -37,15 +38,16 @@ async function run(): Promise<void> {
     // ============================================================
     if (inputs.signal && inputs.signal.trim().length > 0) {
       core.info(`📊 Running signal: ${inputs.signal}`);
+      const resolvedInputs = resolveInputsForSignal(inputs, inputs.signal);
 
       if (inputs.signal === 'DEPENDENCY_DIFF') {
-        const result = await runDependencyDiffSignal(inputs);
-        if (result.hasChanges) {
-          inputs.template = 'CUSTOM_TABLE';
-          inputs.templateData = JSON.stringify(result.data);
-        } else {
-          inputs.comment = result.noChangesComment!;
+        const result = await runDependencyDiffSignal(resolvedInputs);
+        if (!result.hasChanges) {
+          core.info('Skipping PR comment (no dependency changes)');
+          return;
         }
+        inputs.template = 'CUSTOM_TABLE';
+        inputs.templateData = JSON.stringify(result.data);
       } else if (inputs.signal === 'TEST_RESULTS') {
         if (!inputs.testResults || inputs.testResults.trim().length === 0) {
           throw new Error(
@@ -67,7 +69,19 @@ async function run(): Promise<void> {
           inputs.comment = result.noResultsComment ?? '';
         }
       } else if (inputs.signal === 'NEW_DEPENDENCY') {
-        const result = await runNewDependencySignal(inputs);
+        const result = await runNewDependencySignal(resolvedInputs);
+        if (!result.hasChanges) {
+          core.info('Skipping PR comment (no new dependencies)');
+          return;
+        }
+        inputs.template = 'CUSTOM_TABLE';
+        inputs.templateData = JSON.stringify(result.data);
+      } else if (inputs.signal === 'BUNDLE_ANALYSIS') {
+        const result = await runBundleAnalysisSignal(resolvedInputs);
+        if (result.skip) {
+          core.info('Skipping PR comment (baseline not found)');
+          return;
+        }
         if (result.hasChanges) {
           inputs.template = 'CUSTOM_TABLE';
           inputs.templateData = JSON.stringify(result.data);

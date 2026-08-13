@@ -3449,70 +3449,30 @@ function copyFile(srcFile, destFile, force) {
 
 /***/ }),
 
-/***/ 4019:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+/***/ 6909:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
-};
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-  }
-  return to;
-};
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// src/index.ts
-var index_exports = {};
-__export(index_exports, {
-  DEPLOYMENT_STATUS_IMGS: () => DEPLOYMENT_STATUS_IMGS,
-  customTableTemplateSchema: () => customTableTemplateSchema,
-  deploymentTemplateSchema: () => deploymentTemplateSchema,
-  migrationTemplateSchema: () => migrationTemplateSchema,
-  prNumberSchema: () => prNumberSchema,
-  simpleCommentSchema: () => simpleCommentSchema,
-  stickyIdSchema: () => stickyIdSchema,
-  templateTypeSchema: () => templateTypeSchema,
-  testResultsTemplateSchema: () => testResultsTemplateSchema
-});
-module.exports = __toCommonJS(index_exports);
-
-// src/pr-number.ts
-var import_zod = __nccwpck_require__(7151);
-var prNumberSchema = import_zod.z.number().int().positive("PR number must be a positive integer");
-
-// src/sticky-id.ts
-var import_zod2 = __nccwpck_require__(7151);
-var stickyIdSchema = import_zod2.z.string().trim().min(1, "Sticky ID cannot be empty if provided").max(255, "Sticky ID must be less than 255 characters").optional().describe(
-  "Optional identifier for sticky comments. If provided, subsequent comments with the same stickyId will update the existing comment instead of creating a new one."
-);
-
-// src/simple-comment.ts
-var import_zod3 = __nccwpck_require__(7151);
-var simpleCommentSchema = import_zod3.z.string().trim().min(1, "Comment text cannot be empty or contain only whitespace").max(65536, "Comment text is too long (maximum 65,536 characters)");
+var zod = __nccwpck_require__(7151);
 
 // src/templates/deployment.ts
-var import_zod4 = __nccwpck_require__(7151);
-var DEPLOYMENT_STATUSES = ["building", "queued", "success", "failed"];
-var deploymentTemplateSchema = import_zod4.z.object({
-  projectName: import_zod4.z.string().min(1, "Project name is required").describe("The name of the project"),
-  deploymentStatus: import_zod4.z.enum(DEPLOYMENT_STATUSES).describe("Status of the deployment"),
-  projectLink: import_zod4.z.url("Project link must be a valid URL").optional().describe("Optional link to the project"),
-  deploymentLink: import_zod4.z.url("Deployment link must be a valid URL").optional().describe("Link to the deployment"),
-  previewLink: import_zod4.z.url("Preview link must be a valid URL").optional().describe("Optional link to the preview deployment"),
-  commentsLink: import_zod4.z.url("Comments link must be a valid URL").optional().describe("Optional link to PR comments"),
-  statusIconUrl: import_zod4.z.url("Status icon URL must be a valid URL").optional().describe("Optional icon URL to display next to the deployment status"),
-  showTimestamp: import_zod4.z.boolean().default(true).describe("Whether to show the updated timestamp")
+var DEPLOYMENT_STATUSES = [
+  "building",
+  "queued",
+  "success",
+  "failed"
+];
+var deploymentTemplateSchema = zod.z.object({
+  projectName: zod.z.string().min(1, "Project name is required").describe("The name of the project"),
+  deploymentStatus: zod.z.enum(DEPLOYMENT_STATUSES).describe("Status of the deployment"),
+  projectLink: zod.z.url("Project link must be a valid URL").optional().describe("Optional link to the project"),
+  deploymentLink: zod.z.url("Deployment link must be a valid URL").optional().describe("Link to the deployment"),
+  previewLink: zod.z.url("Preview link must be a valid URL").optional().describe("Optional link to the preview deployment"),
+  commentsLink: zod.z.url("Comments link must be a valid URL").optional().describe("Optional link to PR comments"),
+  statusIconUrl: zod.z.url("Status icon URL must be a valid URL").optional().describe("Optional icon URL to display next to the deployment status"),
+  showTimestamp: zod.z.boolean().default(true).describe("Whether to show the updated timestamp")
 });
 
 // src/imgs.ts
@@ -3520,71 +3480,24 @@ var BASE_URL = "https://dev-herald.com/imgs";
 var DEPLOYMENT_STATUS_IMGS = Object.fromEntries(
   DEPLOYMENT_STATUSES.map((status) => [status, `${BASE_URL}/${status}.svg`])
 );
-
-// src/templates/template-type.ts
-var import_zod5 = __nccwpck_require__(7151);
-var templateTypeSchema = import_zod5.z.enum(
-  ["DEPLOYMENT", "TEST_RESULTS", "MIGRATION", "CUSTOM_TABLE"],
-  {
-    message: "Template must be one of: DEPLOYMENT, TEST_RESULTS, MIGRATION, CUSTOM_TABLE"
-  }
+var prNumberSchema = zod.z.number().int().positive("PR number must be a positive integer");
+var simpleCommentSchema = zod.z.string().trim().min(1, "Comment text cannot be empty or contain only whitespace").max(65536, "Comment text is too long (maximum 65,536 characters)");
+var stickyIdSchema = zod.z.string().trim().min(1, "Sticky ID cannot be empty if provided").max(255, "Sticky ID must be less than 255 characters").optional().describe(
+  "Optional identifier for sticky comments. If provided, subsequent comments with the same stickyId will update the existing comment instead of creating a new one."
 );
-
-// src/templates/test-results.ts
-var import_zod6 = __nccwpck_require__(7151);
-var testSuiteSchema = import_zod6.z.object({
-  name: import_zod6.z.string().min(1, "Test suite name is required"),
-  passed: import_zod6.z.number().int().nonnegative().default(0),
-  failed: import_zod6.z.number().int().nonnegative().default(0),
-  skipped: import_zod6.z.number().int().nonnegative().default(0),
-  duration: import_zod6.z.string().optional().describe("Test duration (e.g., '5.2s')"),
-  link: import_zod6.z.url("Link must be a valid URL").optional().describe("Optional link to detailed test results")
-});
-var testResultsTemplateSchema = import_zod6.z.object({
-  summary: import_zod6.z.string().optional().describe("Optional summary message for the test results"),
-  testSuites: import_zod6.z.array(testSuiteSchema).min(1, "At least one test suite is required"),
-  totalLink: import_zod6.z.url("Total link must be a valid URL").optional().describe("Optional link to full test report"),
-  showTimestamp: import_zod6.z.boolean().default(true).describe("Whether to show the updated timestamp")
-});
-
-// src/templates/migration.ts
-var import_zod7 = __nccwpck_require__(7151);
-var migrationMetricSchema = import_zod7.z.object({
-  unit: import_zod7.z.string().min(1, "Unit is required").describe("Unit of measurement (e.g., 'files', 'lines', 'KB')"),
-  before: import_zod7.z.number().describe("Value before the migration"),
-  after: import_zod7.z.number().describe("Value after the migration"),
-  delta: import_zod7.z.number().describe("Change in value (after - before)")
-});
-var migrationItemSchema = import_zod7.z.object({
-  from: import_zod7.z.string().min(1, "Source is required").describe("What was migrated from (e.g., 'emotion', 'JavaScript')"),
-  to: import_zod7.z.string().min(1, "Target is required").describe("What it was migrated to (e.g., 'tailwind', 'TypeScript')"),
-  summary: import_zod7.z.string().min(1, "Summary is required").describe(
-    "Brief summary of the migration progress (e.g., '\u2705 This PR reduced usage of...')"
-  ),
-  whyItMatters: import_zod7.z.string().min(1, "Explanation is required").optional().describe("Optional explanation of why this migration matters"),
-  metric: migrationMetricSchema.describe(
-    "Quantitative metrics showing progress"
+var tableCellSchema = zod.z.object({
+  markdown: zod.z.string().describe(
+    "Cell content as markdown. Use inline links like [label](https://...); pipe characters (|) are auto-escaped in the table output."
   )
 });
-var migrationTemplateSchema = import_zod7.z.object({
-  migrations: import_zod7.z.array(migrationItemSchema).min(1, "At least one migration is required").describe("Array of migration efforts with metrics"),
-  showTimestamp: import_zod7.z.boolean().default(true).describe("Whether to show the updated timestamp")
+var tableRowSchema = zod.z.object({
+  cells: zod.z.array(tableCellSchema).min(1, "Each row must have at least one cell").describe("Array of cells in this row")
 });
-
-// src/templates/custom-table.ts
-var import_zod8 = __nccwpck_require__(7151);
-var tableCellSchema = import_zod8.z.object({
-  text: import_zod8.z.string().describe("The text content of the cell"),
-  link: import_zod8.z.string().url("Link must be a valid URL").optional().describe("Optional link for the cell")
-});
-var tableRowSchema = import_zod8.z.object({
-  cells: import_zod8.z.array(tableCellSchema).min(1, "Each row must have at least one cell").describe("Array of cells in this row")
-});
-var customTableTemplateSchema = import_zod8.z.object({
-  title: import_zod8.z.string().optional().describe("Optional title above the table"),
-  headers: import_zod8.z.array(import_zod8.z.string().min(1)).min(1, "At least one header is required").describe("Array of column headers"),
-  rows: import_zod8.z.array(tableRowSchema).min(1, "At least one row is required").describe("Array of table rows"),
-  showTimestamp: import_zod8.z.boolean().default(true).describe("Whether to show the updated timestamp")
+var customTableTemplateSchema = zod.z.object({
+  title: zod.z.string().optional().describe("Optional title above the table"),
+  headers: zod.z.array(zod.z.string().min(1)).min(1, "At least one header is required").describe("Array of column headers"),
+  rows: zod.z.array(tableRowSchema).min(1, "At least one row is required").describe("Array of table rows"),
+  showTimestamp: zod.z.boolean().default(true).describe("Whether to show the updated timestamp")
 }).refine(
   (data) => {
     return data.rows.every((row) => row.cells.length === data.headers.length);
@@ -3593,8 +3506,42 @@ var customTableTemplateSchema = import_zod8.z.object({
     message: "All rows must have the same number of cells as headers"
   }
 );
-// Annotate the CommonJS export names for ESM import in node:
-0 && (0);
+var migrationMetricSchema = zod.z.object({
+  unit: zod.z.string().min(1, "Unit is required").describe("Unit of measurement (e.g., 'files', 'lines', 'KB')"),
+  before: zod.z.number().describe("Value before the migration"),
+  after: zod.z.number().describe("Value after the migration"),
+  delta: zod.z.number().describe("Change in value (after - before)")
+});
+var migrationItemSchema = zod.z.object({
+  from: zod.z.string().min(1, "Source is required").describe("What was migrated from (e.g., 'emotion', 'JavaScript')"),
+  to: zod.z.string().min(1, "Target is required").describe("What it was migrated to (e.g., 'tailwind', 'TypeScript')"),
+  summary: zod.z.string().min(1, "Summary is required").describe(
+    "Brief summary of the migration progress (e.g., '\u2705 This PR reduced usage of...')"
+  ),
+  whyItMatters: zod.z.string().min(1, "Explanation is required").optional().describe("Optional explanation of why this migration matters"),
+  metric: migrationMetricSchema.describe(
+    "Quantitative metrics showing progress"
+  )
+});
+var migrationTemplateSchema = zod.z.object({
+  migrations: zod.z.array(migrationItemSchema).min(1, "At least one migration is required").describe("Array of migration efforts with metrics"),
+  showTimestamp: zod.z.boolean().default(true).describe("Whether to show the updated timestamp")
+});
+var templateTypeSchema = zod.z.enum(
+  ["DEPLOYMENT", "MIGRATION", "CUSTOM_TABLE"],
+  {
+    message: "Template must be one of: DEPLOYMENT, MIGRATION, CUSTOM_TABLE"
+  }
+);
+
+exports.DEPLOYMENT_STATUS_IMGS = DEPLOYMENT_STATUS_IMGS;
+exports.customTableTemplateSchema = customTableTemplateSchema;
+exports.deploymentTemplateSchema = deploymentTemplateSchema;
+exports.migrationTemplateSchema = migrationTemplateSchema;
+exports.prNumberSchema = prNumberSchema;
+exports.simpleCommentSchema = simpleCommentSchema;
+exports.stickyIdSchema = stickyIdSchema;
+exports.templateTypeSchema = templateTypeSchema;
 
 
 /***/ }),
@@ -30216,6 +30163,7 @@ const index_1 = __nccwpck_require__(1961);
 const dependency_diff_1 = __nccwpck_require__(7079);
 const test_results_1 = __nccwpck_require__(3069);
 const new_dependency_1 = __nccwpck_require__(4118);
+const bundle_analysis_1 = __nccwpck_require__(1282);
 /**
  * Main action entry point
  */
@@ -30244,15 +30192,15 @@ async function run() {
         // ============================================================
         if (inputs.signal && inputs.signal.trim().length > 0) {
             core.info(`📊 Running signal: ${inputs.signal}`);
+            const resolvedInputs = (0, validation_1.resolveInputsForSignal)(inputs, inputs.signal);
             if (inputs.signal === 'DEPENDENCY_DIFF') {
-                const result = await (0, dependency_diff_1.runDependencyDiffSignal)(inputs);
-                if (result.hasChanges) {
-                    inputs.template = 'CUSTOM_TABLE';
-                    inputs.templateData = JSON.stringify(result.data);
+                const result = await (0, dependency_diff_1.runDependencyDiffSignal)(resolvedInputs);
+                if (!result.hasChanges) {
+                    core.info('Skipping PR comment (no dependency changes)');
+                    return;
                 }
-                else {
-                    inputs.comment = result.noChangesComment;
-                }
+                inputs.template = 'CUSTOM_TABLE';
+                inputs.templateData = JSON.stringify(result.data);
             }
             else if (inputs.signal === 'TEST_RESULTS') {
                 if (!inputs.testResults || inputs.testResults.trim().length === 0) {
@@ -30275,7 +30223,20 @@ async function run() {
                 }
             }
             else if (inputs.signal === 'NEW_DEPENDENCY') {
-                const result = await (0, new_dependency_1.runNewDependencySignal)(inputs);
+                const result = await (0, new_dependency_1.runNewDependencySignal)(resolvedInputs);
+                if (!result.hasChanges) {
+                    core.info('Skipping PR comment (no new dependencies)');
+                    return;
+                }
+                inputs.template = 'CUSTOM_TABLE';
+                inputs.templateData = JSON.stringify(result.data);
+            }
+            else if (inputs.signal === 'BUNDLE_ANALYSIS') {
+                const result = await (0, bundle_analysis_1.runBundleAnalysisSignal)(resolvedInputs);
+                if (result.skip) {
+                    core.info('Skipping PR comment (baseline not found)');
+                    return;
+                }
                 if (result.hasChanges) {
                     inputs.template = 'CUSTOM_TABLE';
                     inputs.templateData = JSON.stringify(result.data);
@@ -30522,6 +30483,7 @@ const vitest_1 = __nccwpck_require__(5804);
  *   path: vitest-results/unit.json
  * - name: E2E Tests
  *   path: playwright-results/results.json
+ *   link: https://github.com/owner/repo/actions/runs/123
  * ```
  */
 function parseTestResultsInput(input) {
@@ -30542,6 +30504,12 @@ function parseTestResultsInput(input) {
         else if (trimmed.startsWith('path:') && current) {
             current.path = extractYamlValue(trimmed.slice('path:'.length));
         }
+        else if (trimmed.startsWith('link:') && current) {
+            current.link = extractYamlValue(trimmed.slice('link:'.length));
+        }
+        else if (trimmed.startsWith('url:') && current) {
+            current.link = extractYamlValue(trimmed.slice('url:'.length));
+        }
     }
     if (current?.name && current?.path)
         entries.push(current);
@@ -30551,6 +30519,7 @@ function parseTestResultsInput(input) {
             '    test-results: |\n' +
             '      - name: Unit Tests\n' +
             '        path: vitest-results/unit.json\n' +
+            '        link: https://...   # optional, same for url:\n' +
             '      - name: E2E Tests\n' +
             '        path: playwright-results/results.json');
     }
@@ -30576,7 +30545,7 @@ function formatDuration(ms) {
         return `${(ms / 1000).toFixed(1)}s`;
     return `${Math.round(ms)}ms`;
 }
-function aggregateToSuite(name, result) {
+function aggregateToSuite(name, result, options) {
     const passed = result.testSuites.reduce((sum, s) => sum + s.passed, 0);
     const failed = result.testSuites.reduce((sum, s) => sum + s.failed, 0);
     const skipped = result.testSuites.reduce((sum, s) => sum + (s.skipped ?? 0), 0);
@@ -30588,6 +30557,9 @@ function aggregateToSuite(name, result) {
         suite.skipped = skipped;
     if (totalMs > 0)
         suite.duration = formatDuration(totalMs);
+    if (options?.link && options.link.trim() !== '') {
+        suite.link = options.link.trim();
+    }
     return suite;
 }
 /**
@@ -30598,7 +30570,7 @@ async function parseNamedResultEntries(entries) {
     const testSuites = [];
     for (const entry of entries) {
         const result = await parseResultFile(entry.path);
-        testSuites.push(aggregateToSuite(entry.name, result));
+        testSuites.push(aggregateToSuite(entry.name, result, { link: entry.link }));
     }
     const totalPassed = testSuites.reduce((sum, s) => sum + s.passed, 0);
     const totalFailed = testSuites.reduce((sum, s) => sum + s.failed, 0);
@@ -30927,6 +30899,392 @@ function parseVitestReport(raw) {
 
 /***/ }),
 
+/***/ 9802:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.parseSizeToBytes = parseSizeToBytes;
+exports.parseNextBundleReport = parseNextBundleReport;
+const fs = __importStar(__nccwpck_require__(9896));
+const path = __importStar(__nccwpck_require__(6928));
+/**
+ * Parses a size string (e.g. "7.16 KB", "2.56 KB") to bytes.
+ */
+function parseSizeToBytes(sizeStr) {
+    if (!sizeStr || typeof sizeStr !== 'string')
+        return 0;
+    const trimmed = sizeStr.trim();
+    if (!trimmed)
+        return 0;
+    const match = trimmed.match(/^([\d.]+)\s*([KMGT]?B?)$/i);
+    if (!match)
+        return 0;
+    const value = parseFloat(match[1]);
+    const unit = (match[2] || 'b').toUpperCase();
+    const multipliers = {
+        B: 1,
+        KB: 1024,
+        MB: 1024 * 1024,
+        GB: 1024 * 1024 * 1024,
+    };
+    const mult = multipliers[unit] ?? multipliers[unit.replace('B', '')] ?? 1;
+    return Math.round(value * mult);
+}
+/**
+ * Converts a raw chunk to normalized BundleChunk.
+ */
+function toBundleChunk(raw, source) {
+    const chunk = {
+        label: raw.label,
+        parsedSize: parseSizeToBytes(raw.parsedSize ?? raw.statSize),
+        source,
+    };
+    const gzip = parseSizeToBytes(raw.gzipSize);
+    if (gzip > 0)
+        chunk.gzipSize = gzip;
+    if (raw.chunkNames?.length)
+        chunk.chunkNames = raw.chunkNames;
+    return chunk;
+}
+/**
+ * Derives source (client/edge/nodejs) from filename.
+ * Next.js @next/bundle-analyzer outputs: client.json, edge.json, nodejs.json
+ */
+function getSourceFromFilename(filename) {
+    const base = path.basename(filename, path.extname(filename));
+    const lower = base.toLowerCase();
+    if (lower === 'client' || lower === 'edge' || lower === 'nodejs')
+        return lower;
+    return undefined;
+}
+/**
+ * Parses Next.js bundle analyzer JSON from a directory.
+ * Expects files like client.json, edge.json, nodejs.json (or any *.json).
+ * Merges all chunks with source field from filename.
+ */
+function parseNextBundleReport(dirPath) {
+    const resolved = path.resolve(dirPath);
+    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+        throw new Error(`Bundle report directory not found: ${dirPath}`);
+    }
+    const files = fs.readdirSync(resolved).filter((f) => f.endsWith('.json'));
+    const chunks = [];
+    for (const file of files) {
+        const filePath = path.join(resolved, file);
+        const content = fs.readFileSync(filePath, 'utf8');
+        const source = getSourceFromFilename(file);
+        let data;
+        try {
+            data = JSON.parse(content);
+        }
+        catch {
+            continue; // skip invalid JSON
+        }
+        const arr = Array.isArray(data) ? data : [data];
+        for (const raw of arr) {
+            if (raw?.label) {
+                chunks.push(toBundleChunk(raw, source));
+            }
+        }
+    }
+    return {
+        version: 1,
+        ecosystem: 'next',
+        createdAt: new Date().toISOString(),
+        chunks,
+        meta: { fileCount: files.length },
+    };
+}
+
+
+/***/ }),
+
+/***/ 4291:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.formatBytes = formatBytes;
+exports.formatDelta = formatDelta;
+exports.computeDiff = computeDiff;
+/**
+ * Formats bytes to human-readable string (e.g. 4096 -> "4 KB").
+ */
+function formatBytes(bytes) {
+    if (bytes === 0)
+        return '0 B';
+    const abs = Math.abs(bytes);
+    const sign = bytes < 0 ? '-' : '';
+    if (abs >= 1024 * 1024)
+        return `${sign}${(abs / (1024 * 1024)).toFixed(1)} MB`;
+    if (abs >= 1024)
+        return `${sign}${(abs / 1024).toFixed(1)} KB`;
+    return `${sign}${abs} B`;
+}
+/**
+ * Formats delta with + prefix for positive.
+ */
+function formatDelta(bytes) {
+    if (bytes > 0)
+        return `+${formatBytes(bytes)}`;
+    return formatBytes(bytes);
+}
+/**
+ * Builds a chunk key for comparison. Same label + source = same chunk.
+ */
+function chunkKey(c) {
+    return c.source ? `${c.source}:${c.label}` : c.label;
+}
+/**
+ * Computes diff between baseline and current bundle reports.
+ */
+function computeDiff(baseline, current, options) {
+    const baselineMap = new Map();
+    for (const c of baseline.chunks) {
+        baselineMap.set(chunkKey(c), c);
+    }
+    const currentMap = new Map();
+    for (const c of current.chunks) {
+        currentMap.set(chunkKey(c), c);
+    }
+    const rows = [];
+    let netDeltaBytes = 0;
+    // Added: in current, not in baseline
+    for (const [key, curr] of currentMap) {
+        if (!baselineMap.has(key)) {
+            rows.push({
+                label: curr.label,
+                changeType: 'added',
+                deltaBytes: curr.parsedSize,
+                newSizeBytes: curr.parsedSize,
+                source: curr.source,
+            });
+            netDeltaBytes += curr.parsedSize;
+        }
+    }
+    // Removed: in baseline, not in current
+    for (const [key, base] of baselineMap) {
+        if (!currentMap.has(key)) {
+            rows.push({
+                label: base.label,
+                changeType: 'removed',
+                deltaBytes: -base.parsedSize,
+                newSizeBytes: 0,
+                oldSizeBytes: base.parsedSize,
+                source: base.source,
+            });
+            netDeltaBytes -= base.parsedSize;
+        }
+    }
+    // Changed: same chunk, different size
+    for (const [key, curr] of currentMap) {
+        const base = baselineMap.get(key);
+        if (base && base.parsedSize !== curr.parsedSize) {
+            const delta = curr.parsedSize - base.parsedSize;
+            rows.push({
+                label: curr.label,
+                changeType: 'changed',
+                deltaBytes: delta,
+                newSizeBytes: curr.parsedSize,
+                oldSizeBytes: base.parsedSize,
+                source: curr.source,
+            });
+            netDeltaBytes += delta;
+        }
+    }
+    // Sort: added first, then changed (by abs delta desc), then removed
+    rows.sort((a, b) => {
+        const order = { added: 0, changed: 1, removed: 2 };
+        const o = order[a.changeType] - order[b.changeType];
+        if (o !== 0)
+            return o;
+        return Math.abs(b.deltaBytes) - Math.abs(a.deltaBytes);
+    });
+    const limited = rows.slice(0, options.maxChanges);
+    if (limited.length === 0) {
+        return {
+            hasChanges: false,
+            rows: [],
+            netDeltaBytes: 0,
+            noChangesComment: `## \uD83D\uDCE6 Bundle size\n\n` +
+                `No bundle size changes detected vs baseline.\n\n` +
+                `<sub>Updated ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC</sub>`,
+        };
+    }
+    const prefix = (r) => {
+        if (r.changeType === 'added')
+            return `+ ${r.label}`;
+        if (r.changeType === 'removed')
+            return `- ${r.label}`;
+        return r.label;
+    };
+    const data = {
+        title: `\uD83D\uDCE6 Bundle size (${limited.length} change${limited.length === 1 ? '' : 's'}) · Net: ${formatDelta(netDeltaBytes)}`,
+        headers: ['Chunk', 'Delta', 'New Size'],
+        rows: limited.map((r) => ({
+            cells: [
+                { markdown: prefix(r) },
+                { markdown: formatDelta(r.deltaBytes) },
+                { markdown: r.changeType === 'removed' ? '\u2014' : formatBytes(r.newSizeBytes) },
+            ],
+        })),
+        showTimestamp: true,
+    };
+    return {
+        hasChanges: true,
+        rows: limited,
+        netDeltaBytes,
+        data,
+    };
+}
+
+
+/***/ }),
+
+/***/ 1282:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.runBundleAnalysisSignal = runBundleAnalysisSignal;
+const core = __importStar(__nccwpck_require__(6966));
+const fs = __importStar(__nccwpck_require__(9896));
+const path = __importStar(__nccwpck_require__(6928));
+const next_1 = __nccwpck_require__(9802);
+const diff_1 = __nccwpck_require__(4291);
+/**
+ * Checks if a directory exists and contains at least one JSON file.
+ */
+function hasBundleReport(dirPath) {
+    try {
+        const resolved = path.resolve(dirPath);
+        if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory())
+            return false;
+        const files = fs.readdirSync(resolved).filter((f) => f.endsWith('.json'));
+        return files.length > 0;
+    }
+    catch {
+        return false;
+    }
+}
+/**
+ * Runs the BUNDLE_ANALYSIS signal: loads baseline + current reports, diffs, returns CUSTOM_TABLE data.
+ */
+async function runBundleAnalysisSignal(inputs) {
+    const reportPath = (inputs.bundleReportPath ?? '').trim();
+    const baselinePath = (inputs.bundleBaselinePath ?? '').trim();
+    const baselineBranch = inputs.bundleBaselineBranch.trim() || 'main';
+    const maxChanges = Math.max(1, parseInt(inputs.maxChanges, 10) || 25);
+    const showGzip = inputs.showGzip.toLowerCase() === 'true';
+    if (!reportPath || !baselinePath) {
+        throw new Error('❌ BUNDLE_ANALYSIS requires "bundle-report-path" and "bundle-baseline-path"\n\n' +
+            '💡 Example:\n' +
+            '  with:\n' +
+            '    signal: "BUNDLE_ANALYSIS"\n' +
+            '    bundle-report-path: ".next/analyze/"\n' +
+            '    bundle-baseline-path: "baseline/"');
+    }
+    if (!hasBundleReport(baselinePath)) {
+        core.info(`No baseline found on ${baselineBranch}. Once the analysis on ${baselineBranch} has run you'll see something.`);
+        return { hasChanges: false, skip: true };
+    }
+    if (!hasBundleReport(reportPath)) {
+        throw new Error(`❌ No bundle report found at "${reportPath}". Ensure ANALYZE=true build ran and produced JSON files.`);
+    }
+    core.info('📂 Loading bundle reports...');
+    const baseline = (0, next_1.parseNextBundleReport)(baselinePath);
+    const current = (0, next_1.parseNextBundleReport)(reportPath);
+    core.info(`📋 Baseline: ${baseline.chunks.length} chunks, Current: ${current.chunks.length} chunks`);
+    const result = (0, diff_1.computeDiff)(baseline, current, {
+        maxChanges,
+        showGzip,
+    });
+    if (result.hasChanges) {
+        core.info(`📊 Found ${result.rows.length} bundle change(s)`);
+        return {
+            hasChanges: true,
+            data: result.data,
+        };
+    }
+    return {
+        hasChanges: false,
+        noChangesComment: result.noChangesComment,
+    };
+}
+
+
+/***/ }),
+
 /***/ 7079:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -31077,16 +31435,13 @@ async function queryCVEDeltas(changes) {
 // Main signal entry point
 // ============================================================================
 async function runDependencyDiffSignal(inputs) {
-    const includeRaw = inputs.include.trim() || 'dependencies,devDependencies,optionalDependencies';
-    const enableCveRaw = inputs.enableCve.trim() || 'false';
-    const maxDepsRaw = inputs.maxDeps.trim() || '25';
     const options = {
-        includedFields: includeRaw
+        includedFields: inputs.include
             .split(',')
             .map((s) => s.trim())
             .filter(Boolean),
-        enableCve: enableCveRaw.toLowerCase() === 'true',
-        maxDeps: Math.max(1, parseInt(maxDepsRaw, 10) || 25),
+        enableCve: inputs.enableCve.toLowerCase() === 'true',
+        maxDeps: Math.max(1, parseInt(inputs.maxDeps, 10) || 25),
     };
     core.info(`📦 Scanning dependency fields: ${options.includedFields.join(', ')}`);
     const baseSha = (0, utils_1.getBaseSha)('DEPENDENCY_DIFF');
@@ -31141,10 +31496,10 @@ async function runDependencyDiffSignal(inputs) {
         headers: ['Package', 'From \u2192 To', 'Type', 'CVEs'],
         rows: limited.map((c) => ({
             cells: [
-                { text: c.name },
-                { text: `${formatVersion(c.from)} \u2192 ${formatVersion(c.to)}` },
-                { text: formatChangeType(c.changeType) },
-                { text: formatCveDelta(c.cveDelta) },
+                { markdown: c.name },
+                { markdown: `${formatVersion(c.from)} \u2192 ${formatVersion(c.to)}` },
+                { markdown: formatChangeType(c.changeType) },
+                { markdown: formatCveDelta(c.cveDelta) },
             ],
         })),
         showTimestamp: true,
@@ -31357,16 +31712,13 @@ function formatRelativeTime(dateStr) {
 // Main signal entry point
 // ============================================================================
 async function runNewDependencySignal(inputs) {
-    const includeRaw = inputs.include.trim() || 'dependencies,devDependencies,optionalDependencies';
-    const enableCveRaw = inputs.enableCve.trim() || 'false';
-    const maxDepsRaw = inputs.maxDeps.trim() || '25';
     const options = {
-        includedFields: includeRaw
+        includedFields: inputs.include
             .split(',')
             .map((s) => s.trim())
             .filter(Boolean),
-        enableCve: enableCveRaw.toLowerCase() === 'true',
-        maxDeps: Math.max(1, parseInt(maxDepsRaw, 10) || 25),
+        enableCve: inputs.enableCve.toLowerCase() === 'true',
+        maxDeps: Math.max(1, parseInt(inputs.maxDeps, 10) || 25),
     };
     core.info(`📦 Scanning dependency fields: ${options.includedFields.join(', ')}`);
     const baseSha = (0, utils_1.getBaseSha)('NEW_DEPENDENCY');
@@ -31426,11 +31778,11 @@ async function runNewDependencySignal(inputs) {
         headers: ['Package', 'Version', 'CVEs', 'Weekly DL', 'Last Release'],
         rows: limited.map((d) => ({
             cells: [
-                { text: d.name },
-                { text: d.version },
-                { text: formatCveCount(d.cveCount) },
-                { text: formatDownloads(d.weeklyDownloads) },
-                { text: formatRelativeTime(d.publishedAt) },
+                { markdown: d.name },
+                { markdown: d.version },
+                { markdown: formatCveCount(d.cveCount) },
+                { markdown: formatDownloads(d.weeklyDownloads) },
+                { markdown: formatRelativeTime(d.publishedAt) },
             ],
         })),
         showTimestamp: true,
@@ -31466,11 +31818,15 @@ function runTestResultsSignal(parsed) {
         headers: ['Suite', 'Passed', 'Failed', 'Skipped', 'Duration'],
         rows: parsed.testSuites.map((suite) => ({
             cells: [
-                { text: suite.name, ...(suite.link ? { link: suite.link } : {}) },
-                { text: String(suite.passed) },
-                { text: String(suite.failed) },
-                { text: String(suite.skipped ?? 0) },
-                { text: suite.duration ?? '\u2014' },
+                {
+                    markdown: suite.link
+                        ? `[${suite.name}](${suite.link})`
+                        : suite.name,
+                },
+                { markdown: String(suite.passed) },
+                { markdown: String(suite.failed) },
+                { markdown: String(suite.skipped ?? 0) },
+                { markdown: suite.duration ?? '\u2014' },
             ],
         })),
         showTimestamp: parsed.showTimestamp,
@@ -31678,10 +32034,11 @@ exports.activeTemplateTypeSchema = exports.signalTypeSchema = exports.deployment
 exports.formatZodError = formatZodError;
 exports.getActionInputs = getActionInputs;
 exports.validateInputs = validateInputs;
+exports.resolveInputsForSignal = resolveInputsForSignal;
 exports.buildRequestConfig = buildRequestConfig;
 const core = __importStar(__nccwpck_require__(6966));
 const zod_1 = __nccwpck_require__(8661);
-const constants_1 = __nccwpck_require__(4019);
+const constants_1 = __nccwpck_require__(6909);
 // ============================================================================
 // Deployment Status Enum + Enhanced Schema
 // ============================================================================
@@ -31696,13 +32053,28 @@ exports.deploymentStatusSchema = zod_1.z.enum(['building', 'queued', 'success', 
  * Validated eagerly in validateInputs() so unknown signals fail with a Zod
  * "Allowed values" error before reaching the signal handler in main.ts.
  */
-exports.signalTypeSchema = zod_1.z.enum(['DEPENDENCY_DIFF', 'TEST_RESULTS', 'NEW_DEPENDENCY']);
+exports.signalTypeSchema = zod_1.z.enum(['DEPENDENCY_DIFF', 'TEST_RESULTS', 'NEW_DEPENDENCY', 'BUNDLE_ANALYSIS']);
 /**
- * Active (non-deprecated) template types, derived from the constants package.
- * TEST_RESULTS is excluded — use signal: TEST_RESULTS instead.
- * Any new template added to templateTypeSchema in constants is automatically included here.
+ * Zod schemas that apply signal-specific defaults when inputs are empty.
+ * Used only when the corresponding signal is set — avoids YAML defaults
+ * that would trigger validation errors in template mode.
  */
-exports.activeTemplateTypeSchema = constants_1.templateTypeSchema.exclude(['TEST_RESULTS']);
+const bundleAnalysisDefaultsSchema = zod_1.z.object({
+    bundleBaselineBranch: zod_1.z.string().transform((s) => (s.trim() || 'main')),
+    maxChanges: zod_1.z.string().transform((s) => (s.trim() || '25')),
+    showGzip: zod_1.z.string().transform((s) => (s.trim() || 'false')),
+});
+const depDefaultsSchema = zod_1.z.object({
+    include: zod_1.z.string().transform((s) => s.trim() || 'dependencies,devDependencies,optionalDependencies'),
+    enableCve: zod_1.z.string().transform((s) => s.trim() || 'false'),
+    maxDeps: zod_1.z.string().transform((s) => s.trim() || '25'),
+});
+/**
+ * Active template types for this action, aligned with the constants package.
+ * (TEST_RESULTS is not a valid template in @dev-herald/constants v2+ — use signal: TEST_RESULTS;
+ * a dedicated error is thrown in buildRequestConfig if it appears as input.)
+ */
+exports.activeTemplateTypeSchema = constants_1.templateTypeSchema;
 /**
  * Deployment schema with:
  *  - deploymentStatus constrained to the known enum values
@@ -31741,6 +32113,11 @@ const rawInputsSchema = zod_1.z.object({
     include: zod_1.z.string(),
     enableCve: zod_1.z.string(),
     maxDeps: zod_1.z.string(),
+    bundleReportPath: zod_1.z.string(),
+    bundleBaselinePath: zod_1.z.string(),
+    bundleBaselineBranch: zod_1.z.string(),
+    maxChanges: zod_1.z.string(),
+    showGzip: zod_1.z.string(),
 });
 // ============================================================================
 // Utility Functions
@@ -31863,6 +32240,11 @@ function getActionInputs() {
         include: core.getInput('include', { required: false }),
         enableCve: core.getInput('enable-cve', { required: false }),
         maxDeps: core.getInput('max-deps', { required: false }),
+        bundleReportPath: core.getInput('bundle-report-path', { required: false }) ?? '',
+        bundleBaselinePath: core.getInput('bundle-baseline-path', { required: false }) ?? '',
+        bundleBaselineBranch: core.getInput('bundle-baseline-branch', { required: false }) ?? '',
+        maxChanges: core.getInput('max-changes', { required: false }) ?? '',
+        showGzip: core.getInput('show-gzip', { required: false }) ?? '',
     };
 }
 /**
@@ -31901,14 +32283,56 @@ function validateInputs(inputs) {
         ['include', inputs.include],
         ['enable-cve', inputs.enableCve],
         ['max-deps', inputs.maxDeps],
+        ['bundle-report-path', inputs.bundleReportPath],
+        ['bundle-baseline-path', inputs.bundleBaselinePath],
+        ['bundle-baseline-branch', inputs.bundleBaselineBranch],
+        ['max-changes', inputs.maxChanges],
+        ['show-gzip', inputs.showGzip],
     ];
     const illegalInputs = signalOnlyInputs
         .filter(([, value]) => value.trim().length > 0)
         .map(([name]) => name);
     if (!hasSignal && illegalInputs.length > 0) {
         throw new Error(`❌ The following input(s) are only valid when "signal" is set: ${illegalInputs.map((n) => `"${n}"`).join(', ')}\n\n` +
-            `💡 Either add "signal: DEPENDENCY_DIFF" to your workflow, or remove these inputs.`);
+            `💡 Add a signal (e.g. DEPENDENCY_DIFF, BUNDLE_ANALYSIS) to your workflow, or remove these inputs.`);
     }
+    const bundleInputs = [
+        ['bundle-report-path', inputs.bundleReportPath],
+        ['bundle-baseline-path', inputs.bundleBaselinePath],
+        ['bundle-baseline-branch', inputs.bundleBaselineBranch],
+        ['max-changes', inputs.maxChanges],
+        ['show-gzip', inputs.showGzip],
+    ];
+    const hasBundleInputs = bundleInputs.some(([, value]) => value.trim().length > 0);
+    if (hasBundleInputs && inputs.signal.trim() !== 'BUNDLE_ANALYSIS') {
+        const provided = bundleInputs.filter(([, value]) => value.trim().length > 0).map(([name]) => name);
+        throw new Error(`❌ The following input(s) require signal: BUNDLE_ANALYSIS: ${provided.map((n) => `"${n}"`).join(', ')}\n\n` +
+            `💡 Add signal: BUNDLE_ANALYSIS to your workflow, or remove these inputs.`);
+    }
+}
+/**
+ * Applies signal-specific defaults via Zod when the corresponding signal is set.
+ * Returns a new inputs object with defaults populated — only called when hasSignal.
+ */
+function resolveInputsForSignal(inputs, signal) {
+    const trimmed = signal.trim();
+    if (trimmed === 'BUNDLE_ANALYSIS') {
+        const resolved = bundleAnalysisDefaultsSchema.parse({
+            bundleBaselineBranch: inputs.bundleBaselineBranch,
+            maxChanges: inputs.maxChanges,
+            showGzip: inputs.showGzip,
+        });
+        return { ...inputs, ...resolved };
+    }
+    if (trimmed === 'DEPENDENCY_DIFF' || trimmed === 'NEW_DEPENDENCY') {
+        const resolved = depDefaultsSchema.parse({
+            include: inputs.include,
+            enableCve: inputs.enableCve,
+            maxDeps: inputs.maxDeps,
+        });
+        return { ...inputs, ...resolved };
+    }
+    return inputs;
 }
 /**
  * Builds the request configuration based on inputs with Zod validation

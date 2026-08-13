@@ -41,6 +41,7 @@ const index_1 = require("./parsers/index");
 const dependency_diff_1 = require("./signals/dependency-diff");
 const test_results_1 = require("./signals/test-results");
 const new_dependency_1 = require("./signals/new-dependency");
+const bundle_analysis_1 = require("./signals/bundle-analysis");
 /**
  * Main action entry point
  */
@@ -69,15 +70,15 @@ async function run() {
         // ============================================================
         if (inputs.signal && inputs.signal.trim().length > 0) {
             core.info(`📊 Running signal: ${inputs.signal}`);
+            const resolvedInputs = (0, validation_1.resolveInputsForSignal)(inputs, inputs.signal);
             if (inputs.signal === 'DEPENDENCY_DIFF') {
-                const result = await (0, dependency_diff_1.runDependencyDiffSignal)(inputs);
-                if (result.hasChanges) {
-                    inputs.template = 'CUSTOM_TABLE';
-                    inputs.templateData = JSON.stringify(result.data);
+                const result = await (0, dependency_diff_1.runDependencyDiffSignal)(resolvedInputs);
+                if (!result.hasChanges) {
+                    core.info('Skipping PR comment (no dependency changes)');
+                    return;
                 }
-                else {
-                    inputs.comment = result.noChangesComment;
-                }
+                inputs.template = 'CUSTOM_TABLE';
+                inputs.templateData = JSON.stringify(result.data);
             }
             else if (inputs.signal === 'TEST_RESULTS') {
                 if (!inputs.testResults || inputs.testResults.trim().length === 0) {
@@ -100,7 +101,20 @@ async function run() {
                 }
             }
             else if (inputs.signal === 'NEW_DEPENDENCY') {
-                const result = await (0, new_dependency_1.runNewDependencySignal)(inputs);
+                const result = await (0, new_dependency_1.runNewDependencySignal)(resolvedInputs);
+                if (!result.hasChanges) {
+                    core.info('Skipping PR comment (no new dependencies)');
+                    return;
+                }
+                inputs.template = 'CUSTOM_TABLE';
+                inputs.templateData = JSON.stringify(result.data);
+            }
+            else if (inputs.signal === 'BUNDLE_ANALYSIS') {
+                const result = await (0, bundle_analysis_1.runBundleAnalysisSignal)(resolvedInputs);
+                if (result.skip) {
+                    core.info('Skipping PR comment (baseline not found)');
+                    return;
+                }
                 if (result.hasChanges) {
                     inputs.template = 'CUSTOM_TABLE';
                     inputs.templateData = JSON.stringify(result.data);

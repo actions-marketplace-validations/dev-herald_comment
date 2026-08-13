@@ -34,6 +34,11 @@ function makeDeploymentInputs(overrides: Partial<ActionInputs> = {}): ActionInpu
     include: '',
     enableCve: '',
     maxDeps: '',
+    bundleReportPath: '',
+    bundleBaselinePath: '',
+    bundleBaselineBranch: '',
+    maxChanges: '',
+    showGzip: '',
     ...overrides,
   };
 }
@@ -117,6 +122,40 @@ describe('buildRequestConfig – deployment template happy paths', () => {
     });
 
     expect(() => buildRequestConfig(inputs)).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CUSTOM_TABLE template
+// ---------------------------------------------------------------------------
+
+describe('buildRequestConfig – CUSTOM_TABLE template', () => {
+  it('accepts per-cell markdown (links, empty cells) and returns template request body', () => {
+    const inputs = makeDeploymentInputs({
+      template: 'CUSTOM_TABLE',
+      templateData: JSON.stringify({
+        title: 'Summary',
+        headers: ['Link', 'Note'],
+        rows: [
+          {
+            cells: [
+              { markdown: '[label](https://example.com)' },
+              { markdown: '' },
+            ],
+          },
+          { cells: [{ markdown: 'plain' }, { markdown: 'inline `code`' }] },
+        ],
+        showTimestamp: true,
+      }),
+    });
+    const config = buildRequestConfig(inputs);
+    expect(config.mode).toBe('template');
+    expect((config.requestBody as TemplateCommentRequest).template).toBe('CUSTOM_TABLE');
+    const data = (config.requestBody as TemplateCommentRequest).data as {
+      rows: { cells: { markdown: string }[] }[];
+    };
+    expect(data.rows[0].cells[0].markdown).toBe('[label](https://example.com)');
+    expect(data.rows[0].cells[1].markdown).toBe('');
   });
 });
 
@@ -301,6 +340,11 @@ describe('validateInputs', () => {
       include: '',
       enableCve: '',
       maxDeps: '',
+      bundleReportPath: '',
+      bundleBaselinePath: '',
+      bundleBaselineBranch: '',
+      maxChanges: '',
+      showGzip: '',
       ...overrides,
     };
   }
@@ -348,6 +392,24 @@ describe('validateInputs', () => {
   it('does not throw when signal-only inputs are set alongside signal', () => {
     expect(() =>
       validateInputs(makeRawInputs({ signal: 'DEPENDENCY_DIFF', include: 'dependencies', enableCve: 'true', maxDeps: '10' }))
+    ).not.toThrow();
+  });
+
+  it('throws when bundle inputs are set without signal: BUNDLE_ANALYSIS', () => {
+    expect(() =>
+      validateInputs(makeRawInputs({ bundleReportPath: '.next/analyze/' }))
+    ).toThrow(/BUNDLE_ANALYSIS/);
+  });
+
+  it('throws when bundle inputs are set with a different signal', () => {
+    expect(() =>
+      validateInputs(makeRawInputs({ signal: 'DEPENDENCY_DIFF', bundleReportPath: '.next/analyze/' }))
+    ).toThrow(/BUNDLE_ANALYSIS/);
+  });
+
+  it('does not throw when bundle inputs are set with signal: BUNDLE_ANALYSIS', () => {
+    expect(() =>
+      validateInputs(makeRawInputs({ signal: 'BUNDLE_ANALYSIS', bundleReportPath: '.next/analyze/', bundleBaselinePath: 'baseline/' }))
     ).not.toThrow();
   });
 
